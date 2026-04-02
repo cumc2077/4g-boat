@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PS4 & Touch Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body { 
+            background: #121212; 
+            color: #00ff00; 
+            font-family: 'Courier New', monospace; 
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            text-align: center;
+            padding: 15px;
+            background: #1a1a1a;
+            border-bottom: 2px solid #333;
+        }
+        h1 { 
+            font-size: 24px; 
+            margin-bottom: 10px;
+        }
+        .status { 
+            display: inline-block;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            border: 2px solid #333;
+        }
+        .status.connected { border-color: #00ff00; background: rgba(0, 255, 0, 0.1); }
+        .status.disconnected { border-color: #ff0000; color: #ff0000; background: rgba(255, 0, 0, 0.1); }
+        .status.waiting { border-color: #ffaa00; color: #ffaa00; background: rgba(255, 170, 0, 0.1); }
+        
+        .main-container {
+            flex: 1;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            min-height: 0;
+        }
+        
+        /* Left side - Steering Joystick */
+        .joystick-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a1a;
+            border-radius: 10px;
+            border: 2px solid #333;
+            position: relative;
+        }
+        .joystick-label {
+            position: absolute;
+            top: 15px;
+            font-size: 16px;
+            color: #666;
+            font-weight: bold;
+        }
+        .joystick {
+            width: 250px;
+            height: 250px;
+            background: #0a0a0a;
+            border-radius: 50%;
+            border: 3px solid #333;
+            position: relative;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+        .joystick-center {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #666;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .joystick-stick {
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, #00ff00, #00aa00);
+            border-radius: 50%;
+            border: 3px solid #00ff00;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            touch-action: none;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+            transition: box-shadow 0.1s;
+        }
+        .joystick-stick:active {
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+        }
+        
+        /* Right side - Throttle Controls */
+        .throttle-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .throttle-control {
+            background: #1a1a1a;
+            border-radius: 10px;
+            border: 2px solid #333;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .throttle-control.forward {
+            border-color: #00ff00;
+        }
+        .throttle-control.reverse {
+            border-color: #ff6600;
+        }
+        
+        .throttle-label {
+            font-size: 18px;
+            font-weight: bold;
+            min-width: 80px;
+        }
+        .throttle-label.forward { color: #00ff00; }
+        .throttle-label.reverse { color: #ff6600; }
+        
+        .slider-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 60px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #0a0a0a;
+            border-radius: 30px;
+            outline: none;
+            border: 2px solid #333;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00ff00, #00aa00);
+            cursor: pointer;
+            border: 3px solid #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00ff00, #00aa00);
+            cursor: pointer;
+            border: 3px solid #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+        
+        .slider.reverse::-webkit-slider-thumb {
+            background: radial-gradient(circle, #ff6600, #cc4400);
+            border-color: #ff6600;
+            box-shadow: 0 0 15px rgba(255, 102, 0, 0.5);
+        }
+        
+        .slider.reverse::-moz-range-thumb {
+            background: radial-gradient(circle, #ff6600, #cc4400);
+            border-color: #ff6600;
+            box-shadow: 0 0 15px rgba(255, 102, 0, 0.5);
+        }
+        
+        .throttle-value {
+            font-size: 32px;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: right;
+        }
+        
+        /* Values Display */
+        .values-display {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 15px;
+            background: #1a1a1a;
+            border-top: 2px solid #333;
+        }
+        .value-box {
+            padding: 10px 20px;
+            background: #0a0a0a;
+            border-radius: 5px;
+            border: 2px solid #333;
+        }
+        .value-label { color: #666; font-size: 12px; }
+        .value-num { font-size: 20px; font-weight: bold; margin-top: 5px; }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                padding: 10px;
+                gap: 15px;
+            }
+            .joystick {
+                width: 200px;
+                height: 200px;
+            }
+            .joystick-stick {
+                width: 60px;
+                height: 60px;
+            }
+            h1 { font-size: 20px; }
+            .throttle-label { font-size: 16px; min-width: 60px; }
+            .throttle-value { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚤 BOAT CONTROL</h1>
+        <div class="status waiting" id="stat">Đang đợi kết nối...</div>
+    </div>
+
+    <div class="main-container">
+        <!-- Joystick for Steering -->
+        <div class="joystick-container">
+            <div class="joystick-label">🎯 BẺ LÁI</div>
+            <div class="joystick" id="joystick">
+                <div class="joystick-center"></div>
+                <div class="joystick-stick" id="stick"></div>
+            </div>
+        </div>
+
+        <!-- Throttle Sliders -->
+        <div class="throttle-container">
+            <div class="throttle-control forward">
+                <div class="throttle-label forward">⬆️ TIẾN</div>
+                <div class="slider-container">
+                    <input type="range" min="0" max="100" value="0" class="slider" id="forwardSlider">
+                </div>
+                <div class="throttle-value" id="forwardValue">0</div>
+            </div>
+
+            <div class="throttle-control reverse">
+                <div class="throttle-label reverse">⬇️ LÙI</div>
+                <div class="slider-container">
+                    <input type="range" min="0" max="100" value="0" class="slider reverse" id="reverseSlider">
+                </div>
+                <div class="throttle-value" id="reverseValue">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="values-display">
+        <div class="value-box">
+            <div class="value-label">STEERING</div>
+            <div class="value-num" id="lx-val">0</div>
+        </div>
+        <div class="value-box">
+            <div class="value-label">REVERSE</div>
+            <div class="value-num" id="l2-val">0</div>
+        </div>
+        <div class="value-box">
+            <div class="value-label">FORWARD</div>
+            <div class="value-num" id="r2-val">0</div>
+        </div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('stat');
+        let socket = null;
+        let gamepadIndex = null;
+        let reconnectInterval = null;
+
+        // Control values
+        let currentData = { lx: 0, l2: 0, r2: 0 };
+
+        // Touch/Mouse control state
+        let touchActive = false;
+
+        // ========== WEBSOCKET ==========
+        function connect() {
+            try {
+                socket = new WebSocket('ws://' + window.location.host);
+                
+                socket.onopen = () => {
+                    console.log('✅ WebSocket connected');
+                    updateStatus('connected', '🌐 Sẵn sàng điều khiển!');
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                };
+
+                socket.onerror = (error) => {
+                    console.error('❌ WebSocket error:', error);
+                    updateStatus('disconnected', '❌ Lỗi kết nối server!');
+                };
+
+                socket.onclose = () => {
+                    console.log('⚠️ WebSocket closed');
+                    updateStatus('disconnected', '⚠️ Mất kết nối server!');
+                    stopSending();
+                    
+                    if (!reconnectInterval) {
+                        reconnectInterval = setInterval(() => {
+                            console.log('🔄 Đang thử kết nối lại...');
+                            connect();
+                        }, 2000);
+                    }
+                };
+
+            } catch (error) {
+                console.error('❌ Connection error:', error);
+                updateStatus('disconnected', '❌ Không thể kết nối!');
+            }
+        }
+
+        function updateStatus(state, message) {
+            statusEl.className = 'status ' + state;
+            statusEl.innerText = message;
+        }
+
+        // ========== JOYSTICK CONTROL ==========
+        const joystick = document.getElementById('joystick');
+        const stick = document.getElementById('stick');
+        
+        let joystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+        let maxDistance = 0;
+
+        function initJoystick() {
+            const rect = joystick.getBoundingClientRect();
+            joystickCenter = {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            };
+            maxDistance = rect.width / 2 - 40; // Radius minus stick radius
+        }
+
+        function handleJoystickStart(e) {
+            joystickActive = true;
+            touchActive = true;
+            initJoystick();
+            handleJoystickMove(e);
+        }
+
+        function handleJoystickMove(e) {
+            if (!joystickActive) return;
+            
+            e.preventDefault();
+            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            let deltaX = clientX - joystickCenter.x;
+            let deltaY = clientY - joystickCenter.y;
+            
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            if (distance > maxDistance) {
+                const angle = Math.atan2(deltaY, deltaX);
+                deltaX = Math.cos(angle) * maxDistance;
+                deltaY = Math.sin(angle) * maxDistance;
+            }
+            
+            stick.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+            
+            // Update steering value (-100 to 100)
+            currentData.lx = Math.round((deltaX / maxDistance) * 100);
+        }
+
+        function handleJoystickEnd() {
+            if (!joystickActive) return;
+            
+            joystickActive = false;
+            touchActive = false;
+            stick.style.transform = 'translate(-50%, -50%)';
+            currentData.lx = 0;
+        }
+
+        // Mouse events
+        stick.addEventListener('mousedown', handleJoystickStart);
+        document.addEventListener('mousemove', handleJoystickMove);
+        document.addEventListener('mouseup', handleJoystickEnd);
+
+        // Touch events
+        stick.addEventListener('touchstart', handleJoystickStart);
+        document.addEventListener('touchmove', handleJoystickMove, { passive: false });
+        document.addEventListener('touchend', handleJoystickEnd);
+
+        // ========== THROTTLE SLIDERS ==========
+        const forwardSlider = document.getElementById('forwardSlider');
+        const reverseSlider = document.getElementById('reverseSlider');
+        const forwardValue = document.getElementById('forwardValue');
+        const reverseValue = document.getElementById('reverseValue');
+
+        forwardSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            currentData.r2 = value;
+            forwardValue.textContent = value;
+            touchActive = true;
+            
+            // Auto-reset reverse when using forward
+            if (value > 0 && currentData.l2 > 0) {
+                currentData.l2 = 0;
+                reverseSlider.value = 0;
+                reverseValue.textContent = 0;
+            }
+        });
+
+        reverseSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            currentData.l2 = value;
+            reverseValue.textContent = value;
+            touchActive = true;
+            
+            // Auto-reset forward when using reverse
+            if (value > 0 && currentData.r2 > 0) {
+                currentData.r2 = 0;
+                forwardSlider.value = 0;
+                forwardValue.textContent = 0;
+            }
+        });
+
+        // Reset on release
+        forwardSlider.addEventListener('mouseup', () => touchActive = false);
+        reverseSlider.addEventListener('mouseup', () => touchActive = false);
+        forwardSlider.addEventListener('touchend', () => touchActive = false);
+        reverseSlider.addEventListener('touchend', () => touchActive = false);
+
+        // ========== PS4 CONTROLLER ==========
+        function applyDeadzone(value, threshold = 0.1) {
+            return Math.abs(value) < threshold ? 0 : Math.round(value * 100);
+        }
+
+        window.addEventListener("gamepadconnected", (e) => {
+            gamepadIndex = e.gamepad.index;
+            console.log('🎮 Gamepad connected:', e.gamepad.id);
+            updateStatus('connected', '🎮 ' + e.gamepad.id);
+            startSending();
+        });
+
+        window.addEventListener("gamepaddisconnected", (e) => {
+            console.log('⚠️ Gamepad disconnected');
+            gamepadIndex = null;
+            if (!touchActive) {
+                stopSending();
+            }
+        });
+
+        function updateGamepad() {
+            const gp = navigator.getGamepads()[gamepadIndex];
+            
+            if (gp) {
+                // Only use gamepad if touch is not active
+                if (!touchActive) {
+                    currentData.lx = applyDeadzone(gp.axes[0]);
+                    currentData.l2 = Math.round(gp.buttons[6].value * 100);
+                    currentData.r2 = Math.round(gp.buttons[7].value * 100);
+                }
+            }
+        }
+
+        // ========== DATA SENDING ==========
+        let sendInterval = null;
+
+        function sendData() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(currentData));
+                
+                // Update display
+                document.getElementById('lx-val').innerText = currentData.lx;
+                document.getElementById('l2-val').innerText = currentData.l2;
+                document.getElementById('r2-val').innerText = currentData.r2;
+            }
+        }
+
+        function startSending() {
+            if (!sendInterval) {
+                sendInterval = setInterval(() => {
+                    updateGamepad(); // Update from gamepad if active
+                    sendData();
+                }, 50);
+                console.log('✅ Started sending data at 20Hz');
+            }
+        }
+
+        function stopSending() {
+            if (sendInterval) {
+                clearInterval(sendInterval);
+                sendInterval = null;
+                
+                // Send stop command
+                currentData = { lx: 0, l2: 0, r2: 0 };
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify(currentData));
+                }
+                
+                console.log('⛔ Stopped sending data');
+            }
+        }
+
+        // ========== INITIALIZATION ==========
+        window.addEventListener('load', () => {
+            initJoystick();
+            connect();
+            startSending(); // Always send for touch controls
+        });
+
+        window.addEventListener('resize', initJoystick);
+
+        window.addEventListener('beforeunload', () => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ lx: 0, l2: 0, r2: 0 }));
+                socket.close();
+            }
+        });
+    </script>
+</body>
+</html>
